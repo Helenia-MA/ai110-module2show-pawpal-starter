@@ -55,14 +55,20 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 ```
 
 ```
-================================================
+# ================================================
 Today's Schedule for Jordan
 ================================================
 
+⚠ Time conflicts (the owner can't be in two places at once):
+  - Time conflict at 08:00: Biscuit's Morning walk, Mochi's Feeding overlap.
+
 Biscuit (dog) - 60 min available
 ------------------------------------------------
-  [ ] Medication        10 min [priority: high]
-  [ ] Morning walk      30 min [priority: high]
+  [ ] 07:30  Medication        10 min [priority: high]
+  [ ] 08:00  Morning walk      30 min [priority: high]
+
+  ⚠ Conflicts:
+    - Over budget: 3 due task(s) need 65 min but only 60 min available (5 min short).
 
 Planned 2 of 3 task(s) — 40 of 60 min used (20 min free).
 
@@ -75,8 +81,11 @@ Skipped:
 
 Mochi (cat) - 30 min available
 ------------------------------------------------
-  [ ] Feeding           10 min [priority: high]
-  [ ] Litter change     15 min [priority: medium]
+  [ ] 08:00  Feeding           10 min [priority: high]
+  [ ] 13:00  Litter change     15 min [priority: medium]
+
+  ⚠ Conflicts:
+    - Over budget: 3 due task(s) need 45 min but only 30 min available (15 min short).
 
 Planned 2 of 3 task(s) — 25 of 30 min used (5 min free).
 
@@ -86,6 +95,48 @@ Included:
 
 Skipped:
   • Play time — 20 min [low] (didn't fit remaining time)
+
+================================================
+Sorting & filtering demo — Biscuit
+================================================
+
+As added (deliberately out of order):
+  19:00  Brushing          25 min [low   ] (todo)
+  08:00  Morning walk      30 min [high  ] (todo)
+  07:30  Medication        10 min [high  ] (todo)
+
+Sorted by time — sort_by_time():
+  07:30  Medication        10 min [high  ] (todo)
+  08:00  Morning walk      30 min [high  ] (todo)
+  19:00  Brushing          25 min [low   ] (todo)
+
+Sorted by duration, shortest first — sort_by_duration():
+  07:30  Medication        10 min [high  ] (todo)
+  19:00  Brushing          25 min [low   ] (todo)
+  08:00  Morning walk      30 min [high  ] (todo)
+
+Pending only — filter_by_status(completed=False):
+  08:00  Morning walk      30 min [high  ] (todo)
+  07:30  Medication        10 min [high  ] (todo)
+
+Completed only — filter_by_status(completed=True):
+  19:00  Brushing          25 min [low   ] (done)
+
+Tasks for 'Mochi' — tasks_for_pet('Mochi'):
+  18:30  Play time         20 min [low   ] (todo)
+  08:00  Feeding           10 min [high  ] (todo)
+  13:00  Litter change     15 min [medium] (todo)
+
+================================================
+Recurring-task demo — complete_task() spawns next occurrence
+================================================
+
+Before: Mochi has 3 task(s).
+Completed 'Feeding' (daily).
+After:  Mochi has 4 task(s) (a new occurrence was spawned).
+  new occurrence -> 08:00  Feeding           10 min [high  ] (todo) due 2026-07-08
+  due today (2026-07-07)? False  — it waits for its due date.
+
 ```
 
 ## 🧪 Testing PawPal+
@@ -148,12 +199,124 @@ tests/test_pawpal.py ........................                                   
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+### Main UI features & what you can do
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+Launch the app with `streamlit run app.py`. The page is a single scrolling form with these sections:
+
+- **Owner** — type an owner name (starts blank). A **Start over** button clears everything and resets to a fresh, empty form without restarting the server.
+- **Add a pet** — enter a pet name,its species, and set how many minutes are available for that pet today. Each pet carries its own time budget.
+- **Add a task** — pick which pet the task belongs to, then set its title, duration, priority (low / medium / high), frequency (daily / weekly), and time of day.
+- **Current pets & tasks** — lists every pet with its due tasks. Here you can:
+  - **Sort** the list by Time, Priority, or Duration.
+  - **Filter** by status (All / Pending / Completed).
+  - **Done** — mark a task complete; a recurring task automatically spawns its next occurrence.
+  - **Edit** — open an inline form to change any field of an existing task and save it.
+  - Upcoming occurrences (not yet due) are hidden until their day arrives, so completing a recurring task doesn't clutter the list with a duplicate.
+- **Build schedule** — generates today's plan per pet, shows time-conflict warnings, per-pet conflict warnings, the ordered plan as a table, and a "Why this plan?" explanation.
+
+### Example workflow
+
+1. Enter an **owner name** (e.g. *Jordan*).
+2. **Add a pet**: `Biscuit`, dog, 60 minutes available.
+3. **Add tasks** to Biscuit: *Medication* (10 min, high, 07:30), *Morning walk* (30 min, high, 08:00), *Brushing* (25 min, low, 19:00).
+4. In **Current pets & tasks**, sort by Time to see them in the order you'd do them, or filter to Pending only.
+5. Click **Build schedule** — PawPal+ fits the highest-priority tasks into the 60-minute budget, warns that the tasks are over budget, and explains which task it skipped and why.
+6. Mark *Medication* **Done** — since it's a daily task, tomorrow's occurrence is scheduled automatically (and stays hidden until tomorrow).
+
+### Key Scheduler behaviors shown
+
+- **Sorting** — `sort_by_time()` and `sort_by_duration()` reorder a jumbled task list; `build_plan()` selects by priority first, shortest-duration as the tie-break.
+- **Filtering** — `filter_by_status()` splits pending vs. completed; `Owner.tasks_for_pet()` filters by pet; `Task.needs_doing()` decides what's actually due today.
+- **Time-budget planning** — greedy "skip and keep going": a task that doesn't fit is skipped so leftover minutes aren't wasted, and `explain()` reports what was planned vs. skipped.
+- **Conflict warnings** — `detect_time_conflicts()` catches two tasks booked at the same clock time across all pets; `detect_conflicts()` flags over-budget days and duplicate task names per pet.
+- **Recurring tasks** — `complete_task()` marks a task done and spawns the next occurrence with a future `due_date` based on its frequency.
+
+### Sample CLI output (`python main.py`)
+
+`main.py` runs the same logic headlessly against a two-pet sample scenario, so you can see every behavior in one run:
+
+```
+================================================
+Today's Schedule for Jordan
+================================================
+
+⚠ Time conflicts (the owner can't be in two places at once):
+  - Time conflict at 08:00: Biscuit's Morning walk, Mochi's Feeding overlap.
+
+Biscuit (dog) - 60 min available
+------------------------------------------------
+  [ ] 07:30  Medication        10 min [priority: high]
+  [ ] 08:00  Morning walk      30 min [priority: high]
+
+  ⚠ Conflicts:
+    - Over budget: 3 due task(s) need 65 min but only 60 min available (5 min short).
+
+Planned 2 of 3 task(s) — 40 of 60 min used (20 min free).
+
+Included:
+  • Medication — 10 min [high]
+  • Morning walk — 30 min [high]
+
+Skipped:
+  • Brushing — 25 min [low] (didn't fit remaining time)
+
+Mochi (cat) - 30 min available
+------------------------------------------------
+  [ ] 08:00  Feeding           10 min [priority: high]
+  [ ] 13:00  Litter change     15 min [priority: medium]
+
+  ⚠ Conflicts:
+    - Over budget: 3 due task(s) need 45 min but only 30 min available (15 min short).
+
+Planned 2 of 3 task(s) — 25 of 30 min used (5 min free).
+
+Included:
+  • Feeding — 10 min [high]
+  • Litter change — 15 min [medium]
+
+Skipped:
+  • Play time — 20 min [low] (didn't fit remaining time)
+
+================================================
+Sorting & filtering demo — Biscuit
+================================================
+
+As added (deliberately out of order):
+  19:00  Brushing          25 min [low   ] (todo)
+  08:00  Morning walk      30 min [high  ] (todo)
+  07:30  Medication        10 min [high  ] (todo)
+
+Sorted by time — sort_by_time():
+  07:30  Medication        10 min [high  ] (todo)
+  08:00  Morning walk      30 min [high  ] (todo)
+  19:00  Brushing          25 min [low   ] (todo)
+
+Sorted by duration, shortest first — sort_by_duration():
+  07:30  Medication        10 min [high  ] (todo)
+  19:00  Brushing          25 min [low   ] (todo)
+  08:00  Morning walk      30 min [high  ] (todo)
+
+Pending only — filter_by_status(completed=False):
+  08:00  Morning walk      30 min [high  ] (todo)
+  07:30  Medication        10 min [high  ] (todo)
+
+Completed only — filter_by_status(completed=True):
+  19:00  Brushing          25 min [low   ] (done)
+
+Tasks for 'Mochi' — tasks_for_pet('Mochi'):
+  18:30  Play time         20 min [low   ] (todo)
+  08:00  Feeding           10 min [high  ] (todo)
+  13:00  Litter change     15 min [medium] (todo)
+
+================================================
+Recurring-task demo — complete_task() spawns next occurrence
+================================================
+
+Before: Mochi has 3 task(s).
+Completed 'Feeding' (daily).
+After:  Mochi has 4 task(s) (a new occurrence was spawned).
+  new occurrence -> 08:00  Feeding           10 min [high  ] (todo) due 2026-07-08
+  due today (2026-07-07)? False  — it waits for its due date.
+```
 
 **Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->

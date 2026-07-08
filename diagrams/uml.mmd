@@ -41,7 +41,7 @@ classDiagram
         +filter_by_status(tasks, completed) list~Task~
         +build_plan(tasks, available_minutes, today) list~Task~
         +all_owner_plans(owner, today) dict~Pet, list~Task~~
-        +complete_task(pet, task_id, today) Task
+        +complete_task(pet, task_id, today) Task_or_None
         +detect_time_conflicts(owner, today) list~str~
         +detect_conflicts(pet, today) list~str~
         +explain(planned, skipped, available_minutes) str

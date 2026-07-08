@@ -52,11 +52,16 @@ This is a reasonable tradeoff in this scenario since the main focus of the sched
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
+I used it in designing the uml, brainstorming the optimal designs and logic for the features I wanted to implement, debugging and testing the codes and ensuring changes made in one file were updated accordingly in all the files dependent on it.
+
+when i gave it specific prompts with a step by step guide say on sorting on what it should start with and my preferred outputs or when i included a small example it helped with getting a more accurate response.
 
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+In the beginning, it offered to have tasks as an attribute of owner without its own class and have us return one list of tasks for the owner for all its pets.
+I decided to add the class and have a function mapping each list to its respective pet for an owner with multiple pets since it felt more intuitive and worked well in distinguishing each pet's tasks especially in cases where there are similar tasks for each one.
 
 ---
 
@@ -66,11 +71,18 @@ This is a reasonable tradeoff in this scenario since the main focus of the sched
 
 - What behaviors did you test?
 - Why were these tests important?
+I tested for sorting, the recurrence logic and conflict detection
+sorting correctness was important in ensuring that the priorities of the tasks were considered and we attempted fitting as many tasks as possible within the time budget by prioritizing the shortest ones first. I also tested that when there is free time left that could fit medium priority tasks while a remaining high task was too long, the scheduler wouldn't stop but continue adding the medium priority tasks to the list
+the recurrence logic tests were important in ensuring the new occurrences were not marked as complete, they appeared on the day they were due and stopped after the frequency was over
+conflic detection tests were for the warning message when two tasks across all the owner's pets had the same time.
 
 **b. Confidence**
 
 - How confident are you that your scheduler works correctly?
+90%
 - What edge cases would you test next if you had more time?
+the tasks with overlapping times
+tasks with long durations but critical
 
 ---
 
@@ -79,11 +91,14 @@ This is a reasonable tradeoff in this scenario since the main focus of the sched
 **a. What went well**
 
 - What part of this project are you most satisfied with?
+i was satisfied with how well the frequency logic came together
 
 **b. What you would improve**
 
 - If you had another iteration, what would you improve or redesign?
+I would improve the priority, right the aim is to just fit as many tasks as possible, with time I could brainstorm a logic that put more things into consideration
 
 **c. Key takeaway**
 
 - What is one important thing you learned about designing systems or working with AI on this project?
+That the best way to get good results is to work on small chunks of the app and give it the context it needs.
