@@ -101,7 +101,16 @@ pytest --cov
 Sample test output:
 
 ```
-# Paste your pytest output here
+# ==================================================================================================== test session starts =====================================================================================================
+platform darwin -- Python 3.13.10, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/Admin/Desktop/SUMMER 2026/CODEPATH/AI110/ai110-module2show-pawpal-starter
+plugins: anyio-4.14.0
+collected 18 items
+
+tests/test_pawpal.py ..................                                                                                                                                                                                [100%]
+
+===================================================================================================== 18 passed in 0.03s =====================================================================================================
+(.venv) .../ai110-module2show-pawpal-starter>
 ```
 
 ## 📐 Smarter Scheduling
@@ -114,6 +123,28 @@ Sample test output:
 | Filtering | | e.g., skip tasks if time runs out |
 | Conflict handling | | e.g., overlapping time slots |
 | Recurring tasks | | e.g., daily vs. weekly |
+
+1. task sorting
+    Scheduler.sort_by_time() - orders tasks by their time
+    Scheduler.sort_by_duration() - orders tasks by their duration(duration_minutes);(ascending order; shortest - longest)
+    Scheduler.build_plan() - selects tasks by priority then shortest duration and returns the chosen plan sorted by the tasks' time
+2. filtering
+    Owner.tasks_for_pet() - filter by pet
+    Scheduler.filter_by-status - filter by completion status
+    Task.needs_doing() - helps with filtering what's due today
+3. conflict detection
+    Scheduler.detect_time_conflict() - detects clash in exact time for tasks for a given owner across all pets
+    Scheduler.detect_conflicts() - checks for exceeded time availability and duplicate task names for a given pet
+4. recurring task logic
+    Scheduler.complete_task() - marks a task completed, spawns new occurrence for recurring ones based on their frequency
+    Task.mark_complete() - marks the task occurrence done
+    Task.due_date() - the day when a spawned occurrence is due
+    FREQUENCY_DAYS - for mapping the frequencies to numerical values eg daily, weekly etc
+5. planning and explanation
+    Scheduler.build_plan() - makes the daily plan per pet within the time budget
+    Scheduler.all_owner_plans() - maps each plan to its respective pet
+    Scheduler.explain() - provides reasoning for the order of the tasks and a summary of what was planned or skipped and why
+
 
 ## 📸 Demo Walkthrough
 

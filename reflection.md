@@ -36,11 +36,14 @@ my design entails 3 classes: task, owner and scheduler;
 - What constraints does your scheduler consider (for example: time, priority, preferences)?
 - How did you decide which constraints mattered most?
 
+
 **b. Tradeoffs**
 
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
+The scheduler produces the ordered to-do list that fits the daily time budget and not necessarily a true calendar. It only uses the task's provided time to order the list rather than as a basis for fitting tasks to the schedule. Thus our conflict constraint only catches exact time matches and not tasks with overlapping times.
 
+This is a reasonable tradeoff in this scenario since the main focus of the scheduler is in helping the owner prioritize and decide what to do first and not necessarily when. As long as the tasks are catered to fit in the available given time scope, the exact time a specific task is done is more flexible and not as rigid.
 ---
 
 ## 3. AI Collaboration

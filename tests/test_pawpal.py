@@ -1,6 +1,8 @@
 """Tests for PawPal+ core behaviors."""
 
-from pawpal_system import Pet, Task
+from datetime import date, timedelta
+
+from pawpal_system import Owner, Pet, Scheduler, Task
 
 
 def test_mark_complete_changes_status():
@@ -27,3 +29,224 @@ def test_add_task_increases_pet_task_count():
 
     # One task after adding.
     assert len(pet.tasks) == 1
+
+
+# --- Feature: sorting by time ("HH:MM") ----------------------------------
+
+def test_sort_by_time_orders_chronologically():
+    """sort_by_time orders tasks by their HH:MM clock time, earliest first."""
+    pet = Pet("Biscuit", "dog", available_minutes=120)
+    pet.add_task("Evening walk", 20, 1, time="18:45")
+    pet.add_task("Morning meds", 10, 3, time="07:30")
+    pet.add_task("Midday brush", 15, 2, time="13:00")
+
+    ordered = Scheduler().sort_by_time(pet.tasks)
+
+    assert [t.time for t in ordered] == ["07:30", "13:00", "18:45"]
+
+
+def test_build_plan_delivers_tasks_in_time_order():
+    """The plan itself comes back chronological by clock time."""
+    pet = Pet("Biscuit", "dog", available_minutes=120)
+    pet.add_task("Evening walk", 20, 1, time="18:45")
+    pet.add_task("Morning meds", 10, 3, time="07:30")
+    pet.add_task("Midday brush", 15, 2, time="13:00")
+
+    plan = Scheduler().build_plan(pet.tasks, pet.available_minutes, date(2026, 7, 7))
+
+    assert [t.name for t in plan] == ["Morning meds", "Midday brush", "Evening walk"]
+
+
+# --- Feature: filtering by pet / status ----------------------------------
+
+def test_tasks_for_pet_filters_by_pet():
+    """Owner.tasks_for_pet returns only the named pet's tasks."""
+    owner = Owner("Jordan")
+    dog = owner.add_pet("Biscuit", "dog", 60)
+    cat = owner.add_pet("Mochi", "cat", 30)
+    dog.add_task("Walk", 30, 3)
+    cat.add_task("Feeding", 10, 3)
+
+    assert [t.name for t in owner.tasks_for_pet("Mochi")] == ["Feeding"]
+    assert owner.tasks_for_pet("Nobody") == []
+
+
+def test_filter_by_status_splits_done_and_pending():
+    """filter_by_status separates completed from pending tasks."""
+    pet = Pet("Biscuit", "dog", 60)
+    done = pet.add_task("Walk", 30, 3)
+    pending = pet.add_task("Brush", 15, 1)
+    done.mark_complete()
+
+    scheduler = Scheduler()
+    assert scheduler.filter_by_status(pet.tasks, completed=True) == [done]
+    assert scheduler.filter_by_status(pet.tasks, completed=False) == [pending]
+
+
+# --- Feature: recurring tasks (spawn a new occurrence on completion) ------
+
+def test_needs_doing_respects_due_date_and_completion():
+    """Undated tasks are always due; a future due_date waits; done never needs doing."""
+    today = date(2026, 7, 7)
+
+    undated = Task(id=1, name="Walk", duration_minutes=30, priority=3)
+    assert undated.needs_doing(today) is True          # no due_date -> due any day
+
+    future = Task(id=2, name="Bath", duration_minutes=20, priority=2,
+                  due_date=today + timedelta(days=1))
+    assert future.needs_doing(today) is False          # not due until tomorrow
+    assert future.needs_doing(today + timedelta(days=1)) is True
+
+    undated.mark_complete()
+    assert undated.needs_doing(today) is False          # completed -> not due
+
+
+def test_complete_task_spawns_next_daily_occurrence():
+    """Completing a daily task creates a new occurrence due tomorrow."""
+    today = date(2026, 7, 7)
+    pet = Pet("Biscuit", "dog", available_minutes=60)
+    walk = pet.add_task("Walk", 30, 3, frequency="daily", time="08:00")
+
+    new = Scheduler().complete_task(pet, walk.id, today)
+
+    # Original stays as completed history; a second task now exists.
+    assert walk.completed is True
+    assert len(pet.tasks) == 2
+    # The spawned occurrence is a distinct, not-completed task due tomorrow.
+    assert new is not None and new.id != walk.id
+    assert new.completed is False
+    assert new.due_date == today + timedelta(days=1)
+    # It carries the same details as the original.
+    assert (new.name, new.duration_minutes, new.priority, new.time) == \
+           ("Walk", 30, 3, "08:00")
+
+
+def test_complete_task_spawns_next_weekly_occurrence():
+    """Completing a weekly task creates a new occurrence due in 7 days."""
+    today = date(2026, 7, 7)
+    pet = Pet("Mochi", "cat", available_minutes=60)
+    bath = pet.add_task("Bath", 20, 2, frequency="weekly")
+
+    new = Scheduler().complete_task(pet, bath.id, today)
+
+    assert new is not None
+    assert new.due_date == today + timedelta(days=7)
+
+
+def test_complete_task_does_not_spawn_for_one_off():
+    """A non-recurring ('once') task is completed but spawns nothing."""
+    today = date(2026, 7, 7)
+    pet = Pet("Biscuit", "dog", available_minutes=60)
+    vet = pet.add_task("Vet visit", 45, 3, frequency="once")
+
+    new = Scheduler().complete_task(pet, vet.id, today)
+
+    assert new is None
+    assert vet.completed is True
+    assert len(pet.tasks) == 1  # no new occurrence created
+
+
+def test_spawned_occurrence_waits_for_its_due_date_in_the_plan():
+    """The spawned occurrence is skipped today but appears on its due date."""
+    today = date(2026, 7, 7)
+    pet = Pet("Biscuit", "dog", available_minutes=60)
+    walk = pet.add_task("Walk", 30, 3, frequency="daily", time="08:00")
+    scheduler = Scheduler()
+
+    scheduler.complete_task(pet, walk.id, today)
+
+    # Today: original is done, next occurrence isn't due yet -> nothing planned.
+    assert scheduler.build_plan(pet.tasks, pet.available_minutes, today) == []
+    # Tomorrow: the spawned occurrence is due and gets planned.
+    tomorrow = today + timedelta(days=1)
+    plan = scheduler.build_plan(pet.tasks, pet.available_minutes, tomorrow)
+    assert [t.name for t in plan] == ["Walk"]
+
+
+# --- Feature: basic conflict detection -----------------------------------
+
+def test_detect_conflicts_flags_over_budget():
+    """When due tasks exceed available time, a conflict is reported."""
+    pet = Pet("Biscuit", "dog", available_minutes=30)
+    pet.add_task("Walk", 30, 3)
+    pet.add_task("Brush", 15, 1)  # 45 min total > 30 available
+
+    conflicts = Scheduler().detect_conflicts(pet, date(2026, 7, 7))
+
+    assert any("Over budget" in c for c in conflicts)
+
+
+def test_detect_conflicts_flags_duplicates():
+    """Adding the same task name twice is flagged as a duplicate."""
+    pet = Pet("Biscuit", "dog", available_minutes=120)
+    pet.add_task("Walk", 30, 3)
+    pet.add_task("walk", 30, 3)  # same name, different case
+
+    conflicts = Scheduler().detect_conflicts(pet, date(2026, 7, 7))
+
+    assert any("Duplicate" in c for c in conflicts)
+
+
+def test_no_conflicts_when_everything_fits():
+    """A pet whose due tasks fit its budget reports no conflicts."""
+    pet = Pet("Mochi", "cat", available_minutes=60)
+    pet.add_task("Feeding", 10, 3)
+    pet.add_task("Litter", 15, 2)
+
+    assert Scheduler().detect_conflicts(pet, date(2026, 7, 7)) == []
+
+
+# --- Feature: same-time conflict detection (Step 4) ----------------------
+
+def test_detect_time_conflicts_across_different_pets():
+    """Two pets with tasks at the same clock time are flagged (owner-wide)."""
+    today = date(2026, 7, 7)
+    owner = Owner("Jordan")
+    dog = owner.add_pet("Biscuit", "dog", 120)
+    cat = owner.add_pet("Mochi", "cat", 120)
+    dog.add_task("Walk", 30, 3, time="08:00")
+    cat.add_task("Feeding", 10, 3, time="08:00")
+
+    warnings = Scheduler().detect_time_conflicts(owner, today)
+
+    assert len(warnings) == 1
+    assert "08:00" in warnings[0]
+    assert "Biscuit's Walk" in warnings[0]
+    assert "Mochi's Feeding" in warnings[0]
+
+
+def test_detect_time_conflicts_within_one_pet():
+    """Two tasks on the SAME pet at the same time are also flagged."""
+    today = date(2026, 7, 7)
+    owner = Owner("Jordan")
+    dog = owner.add_pet("Biscuit", "dog", 120)
+    dog.add_task("Walk", 30, 3, time="08:00")
+    dog.add_task("Meds", 10, 3, time="08:00")
+
+    warnings = Scheduler().detect_time_conflicts(owner, today)
+
+    assert len(warnings) == 1
+    assert "08:00" in warnings[0]
+
+
+def test_no_time_conflict_when_times_differ():
+    """Distinct times produce no warning."""
+    today = date(2026, 7, 7)
+    owner = Owner("Jordan")
+    dog = owner.add_pet("Biscuit", "dog", 120)
+    dog.add_task("Walk", 30, 3, time="08:00")
+    dog.add_task("Meds", 10, 3, time="09:00")
+
+    assert Scheduler().detect_time_conflicts(owner, today) == []
+
+
+def test_completed_task_does_not_cause_false_time_conflict():
+    """A completed occurrence at a slot doesn't clash with a pending one."""
+    today = date(2026, 7, 7)
+    owner = Owner("Jordan")
+    dog = owner.add_pet("Biscuit", "dog", 120)
+    done = dog.add_task("Walk", 30, 3, time="08:00")
+    dog.add_task("Meds", 10, 3, time="08:00")
+    done.mark_complete()  # no longer due -> excluded from the clash check
+
+    assert Scheduler().detect_time_conflicts(owner, today) == []
