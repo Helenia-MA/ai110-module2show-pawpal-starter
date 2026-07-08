@@ -1,15 +1,74 @@
 classDiagram
-    %% Replace the placeholders below with your actual classes, attributes, methods, and relationships.
-    %% Keep this file updated so it matches your final implementation.
+    %% PawPal+ — plans a pet owner's daily care tasks within a time budget.
+    %% Priority is stored as a number internally (higher = more important);
+    %% the UI maps it to/from labels (high / medium / low).
 
-    class ClassName {
-        +type attribute
-        +method() returnType
+    class Task {
+        +int id
+        +str name
+        +int duration_minutes
+        +int priority
     }
 
-    class AnotherClass {
-        +type attribute
-        +method() returnType
+    class Pet {
+        +str name
+        +str species
+        +int available_minutes
+        +list~Task~ tasks
+        -int _next_id
+        +add_task(name, duration_minutes, priority) Task
+        +edit_task(id, name, duration_minutes, priority) Task
+        +set_availability(minutes) void
     }
 
-    ClassName --> AnotherClass : relationship
+    class Owner {
+        +str name
+        +list~Pet~ pets
+        +add_pet(name, species, available_minutes) Pet
+    }
+
+    class Scheduler {
+        +build_plan(tasks, available_minutes) list~Task~
+        +build_plans_for_owner(owner) dict~Pet, list~Task~~
+        -sort_tasks(tasks) list~Task~
+        -filter_to_fit(sorted_tasks, available_minutes) list~Task~
+        +explain(planned, skipped, available_minutes) str
+    }
+
+    Owner "1" --> "*" Pet : has
+    Pet "1" --> "*" Task : has
+    Scheduler ..> Owner : plans for
+    Scheduler ..> Task : reads / orders
+
+    %% ────────────────────────────────────────────────────────────
+    %% Design notes (kept from brainstorming — not part of the diagram)
+    %%
+    %% ANALYZING THE CASE
+    %%   pet owner with a pet/pets
+    %%   actions for assistant/code:
+    %%     track pet care tasks (walk, feeding, meds, grooming etc)
+    %%     consider constraints for owner (time availability, priority)
+    %%     produce a daily plan for owner and explain why
+    %%
+    %% SCENARIO
+    %%   - owner navigates to the app
+    %%   - adds/edits tasks (duration + priority) + how much time they have
+    %%   - app generates a daily plan based on constraints and priority
+    %%   - displays the plan clearly, explaining the reasoning too
+    %%   - tests: tasks shouldn't exceed available time; priority is honored
+    %%
+    %% KEY DESIGN DECISIONS
+    %%   - No fixed clock times: output an ORDERED list of tasks + durations
+    %%     that fits the time budget; owner decides when to do each.
+    %%   - Sort strictly by priority, then shortest-duration as tie-break.
+    %%   - Filter = "skip and keep going": if a task doesn't fit, skip it and
+    %%     try the next, so leftover time isn't wasted. Greedy, not optimal.
+    %%   - Tasks live on the Pet; an Owner has many Pets. For a multi-pet
+    %%     owner we produce ONE schedule PER PET (not one combined plan).
+    %%   - available_minutes lives on each Pet: the owner allocates time per pet
+    %%     (e.g. 60 min dog, 30 min cat). Each pet is scheduled against its own
+    %%     budget. Simplification: no owner-wide total cap across all pets.
+    %%   - Each Task has a unique id (name isn't unique). Owner keeps a
+    %%     _next_id counter so ids are deterministic (1, 2, 3...) — good
+    %%     for tests. edit_task finds a task by id. No parallel name->id
+    %%     index: the task list is the single source of truth.

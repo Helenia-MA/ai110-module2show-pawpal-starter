@@ -7,6 +7,18 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
+my design entails 3 classes: task, owner and scheduler;
+    * owner:
+        - name, pets
+        - add_pets
+    * pet:
+        - name, species, total time availability, tasks
+        - add task, edit task, set availability
+    * task:
+        - id, name, duration, priority
+    * scheduler:
+        - build plan(sort and filters tasks to fit), explanation
+
 **b. Design changes**
 
 - Did your design change during implementation?
