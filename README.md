@@ -54,6 +54,40 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 #   ...
 ```
 
+```
+================================================
+Today's Schedule for Jordan
+================================================
+
+Biscuit (dog) - 60 min available
+------------------------------------------------
+  [ ] Medication        10 min [priority: high]
+  [ ] Morning walk      30 min [priority: high]
+
+Planned 2 of 3 task(s) — 40 of 60 min used (20 min free).
+
+Included:
+  • Medication — 10 min [high]
+  • Morning walk — 30 min [high]
+
+Skipped:
+  • Brushing — 25 min [low] (didn't fit remaining time)
+
+Mochi (cat) - 30 min available
+------------------------------------------------
+  [ ] Feeding           10 min [priority: high]
+  [ ] Litter change     15 min [priority: medium]
+
+Planned 2 of 3 task(s) — 25 of 30 min used (5 min free).
+
+Included:
+  • Feeding — 10 min [high]
+  • Litter change — 15 min [medium]
+
+Skipped:
+  • Play time — 20 min [low] (didn't fit remaining time)
+```
+
 ## 🧪 Testing PawPal+
 
 ```bash

@@ -8,6 +8,8 @@ classDiagram
         +str name
         +int duration_minutes
         +int priority
+        +str frequency
+        +bool completed
     }
 
     class Pet {
@@ -16,8 +18,8 @@ classDiagram
         +int available_minutes
         +list~Task~ tasks
         -int _next_id
-        +add_task(name, duration_minutes, priority) Task
-        +edit_task(id, name, duration_minutes, priority) Task
+        +add_task(name, duration_minutes, priority, frequency) Task
+        +edit_task(id, name, duration_minutes, priority, frequency, completed) Task
         +set_availability(minutes) void
     }
 
@@ -25,13 +27,12 @@ classDiagram
         +str name
         +list~Pet~ pets
         +add_pet(name, species, available_minutes) Pet
+        +get_all_tasks() list~Task~
     }
 
     class Scheduler {
         +build_plan(tasks, available_minutes) list~Task~
-        +build_plans_for_owner(owner) dict~Pet, list~Task~~
-        -sort_tasks(tasks) list~Task~
-        -filter_to_fit(sorted_tasks, available_minutes) list~Task~
+        +all_owner_plans(owner) dict~Pet, list~Task~~
         +explain(planned, skipped, available_minutes) str
     }
 

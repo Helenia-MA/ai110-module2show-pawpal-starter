@@ -1,10 +1,7 @@
 """PawPal+ — class skeleton generated from diagrams/uml.mmd.
-
-Skeleton only: names, attributes, and empty method stubs. No logic yet
-(README step 3). Fill in the method bodies during the implementation step.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 # Priority is stored as a NUMBER internally (higher = more important) so tasks
@@ -15,12 +12,20 @@ PRIORITY_VALUES = {label: value for value, label in PRIORITY_LABELS.items()}
 
 @dataclass
 class Task:
-    """A single pet-care task. Data only — no behavior."""
-
+    """A single pet-care task."""
     id: int
     name: str
     duration_minutes: int
     priority: int
+    frequency: str = "daily"   # e.g. "daily", "weekly"
+    completed: bool = False
+    # NOTE (known limitation): `completed` has no date context, so recurring
+    # tasks don't auto-reset across days. Future: replace with a `last_completed`
+    # date + a `needs_doing(today)` check that derives due-ness from `frequency`.
+
+    def mark_complete(self) -> None:
+        """Mark this task as done for today."""
+        self.completed = True
 
 
 class Pet:
@@ -31,6 +36,7 @@ class Pet:
     """
 
     def __init__(self, name: str, species: str = "", available_minutes: int = 0) -> None:
+        """Create a pet with an empty task list and its own time budget."""
         self.name: str = name
         self.species: str = species
         self.available_minutes: int = available_minutes
@@ -38,9 +44,18 @@ class Pet:
         # Counter so each task gets a unique, deterministic id (1, 2, 3...).
         self._next_id: int = 1
 
-    def add_task(self, name: str, duration_minutes: int, priority: int) -> Task:
+    def add_task(
+        self,
+        name: str,
+        duration_minutes: int,
+        priority: int,
+        frequency: str = "daily",
+    ) -> Task:
         """Create a Task with the next id, append it, and return it."""
-        pass
+        task = Task(self._next_id, name, duration_minutes, priority, frequency)
+        self._next_id += 1
+        self.tasks.append(task)
+        return task
 
     def edit_task(
         self,
@@ -48,25 +63,47 @@ class Pet:
         name: str | None = None,
         duration_minutes: int | None = None,
         priority: int | None = None,
+        frequency: str | None = None,
+        completed: bool | None = None,
     ) -> Task:
         """Find the task with this id and update the fields that were provided."""
-        pass
+        for task in self.tasks:
+            if task.id == id:
+                if name is not None:
+                    task.name = name
+                if duration_minutes is not None:
+                    task.duration_minutes = duration_minutes
+                if priority is not None:
+                    task.priority = priority
+                if frequency is not None:
+                    task.frequency = frequency
+                if completed is not None:
+                    task.completed = completed
+                return task
+        raise ValueError(f"No task with id {id}")
 
     def set_availability(self, minutes: int) -> None:
         """Set how many minutes the owner has for this pet today."""
-        pass
+        self.available_minutes = minutes
 
 
 class Owner:
     """Holds the owner's pets. Time is allocated per pet (see Pet.available_minutes)."""
 
     def __init__(self, name: str = "") -> None:
+        """Create an owner with an empty list of pets."""
         self.name: str = name
         self.pets: list[Pet] = []
 
     def add_pet(self, name: str, species: str = "", available_minutes: int = 0) -> Pet:
         """Create a Pet (with its own time budget), append it, and return it."""
-        pass
+        pet = Pet(name, species, available_minutes)
+        self.pets.append(pet)
+        return pet
+
+    def get_all_tasks(self) -> list[Task]:
+        """Return every task across all of the owner's pets, in one flat list."""
+        return [task for pet in self.pets for task in pet.tasks]
 
 
 class Scheduler:
@@ -79,22 +116,31 @@ class Scheduler:
     """
 
     def build_plan(self, tasks: list[Task], available_minutes: int) -> list[Task]:
-        """Front door for ONE task list: sort, then filter to what fits."""
-        pass
+        """Sort by priority then shortest duration, then keep what fits the budget.
 
-    def build_plans_for_owner(self, owner: "Owner") -> dict[Pet, list[Task]]:
+        Uses "skip and keep going": a task that doesn't fit is skipped, and we
+        keep checking later (shorter) tasks so leftover minutes aren't wasted.
+        Already-completed tasks are excluded — we only plan what's still to do.
+        """
+        # Drop completed tasks, then sort: highest priority first (-priority),
+        # then shortest duration first.
+        pending = [t for t in tasks if not t.completed]
+        ordered = sorted(pending, key=lambda t: (-t.priority, t.duration_minutes))
+
+        plan: list[Task] = []
+        used = 0
+        for task in ordered:
+            if used + task.duration_minutes <= available_minutes:
+                plan.append(task)
+                used += task.duration_minutes
+        return plan
+
+    def all_owner_plans(self, owner: "Owner") -> dict[Pet, list[Task]]:
         """Plan every pet separately: one schedule per pet, keyed by pet."""
-        pass
-
-    def _sort_tasks(self, tasks: list[Task]) -> list[Task]:
-        """Sort by priority (high first), then by shortest duration."""
-        pass
-
-    def _filter_to_fit(
-        self, sorted_tasks: list[Task], available_minutes: int
-    ) -> list[Task]:
-        """Walk the sorted tasks, keeping each that still fits; skip the rest."""
-        pass
+        return {
+            pet: self.build_plan(pet.tasks, pet.available_minutes)
+            for pet in owner.pets
+        }
 
     def explain(
         self,
@@ -102,5 +148,35 @@ class Scheduler:
         skipped: list[Task],
         available_minutes: int,
     ) -> str:
-        """Human-readable reasoning: what was planned, what was skipped and why."""
-        pass
+        """Human-readable reasoning: what was planned, what was skipped and why.
+
+        `skipped` is any task not in the plan (didn't fit, or already completed);
+        each task's own `completed` flag tells us which reason to show.
+        """
+        used = sum(t.duration_minutes for t in planned)
+        total = len(planned) + len(skipped)
+        free = available_minutes - used
+
+        lines = [
+            f"Planned {len(planned)} of {total} task(s) — "
+            f"{used} of {available_minutes} min used ({free} min free)."
+        ]
+
+        if planned:
+            lines.append("")
+            lines.append("Included:")
+            for t in planned:
+                label = PRIORITY_LABELS.get(t.priority, str(t.priority))
+                lines.append(f"  • {t.name} — {t.duration_minutes} min [{label}]")
+
+        if skipped:
+            lines.append("")
+            lines.append("Skipped:")
+            for t in skipped:
+                label = PRIORITY_LABELS.get(t.priority, str(t.priority))
+                reason = "already completed" if t.completed else "didn't fit remaining time"
+                lines.append(
+                    f"  • {t.name} — {t.duration_minutes} min [{label}] ({reason})"
+                )
+
+        return "\n".join(lines)

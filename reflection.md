@@ -8,21 +8,24 @@
 - What classes did you include, and what responsibilities did you assign to each?
 
 my design entails 3 classes: task, owner and scheduler;
+    * task:
+        - id, name, duration, priority
+    * pet:
+        - name, species, total time availability, tasks, next_id
+        - add task, edit task, set availability
     * owner:
         - name, pets
         - add_pets
-    * pet:
-        - name, species, total time availability, tasks
-        - add task, edit task, set availability
-    * task:
-        - id, name, duration, priority
     * scheduler:
-        - build plan(sort and filters tasks to fit), explanation
+        - build plan(sort and filters tasks to fit), all_owner_plans(to return all plans each assigned to the respective pet for the owner), explanation
 
 **b. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+* Added frequency and completed attributes to the Task class so we can handle repeating tasks and can also allow user to keep track of the completed/uncompleted tasks and have a chance to add some of the dropped off tasks back to the list if some of the completed ones took shorter time than allocated.
+* added an all_tasks function to allow the owner to see all their added tasks
+
 
 ---
 
