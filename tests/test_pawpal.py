@@ -250,3 +250,83 @@ def test_completed_task_does_not_cause_false_time_conflict():
     done.mark_complete()  # no longer due -> excluded from the clash check
 
     assert Scheduler().detect_time_conflicts(owner, today) == []
+
+
+# --- Feature: greedy plan selection (the core scheduling algorithm) -------
+
+def test_build_plan_skips_task_that_does_not_fit_but_keeps_going():
+    """'Skip and keep going': a task too big for the leftover time is skipped,
+    yet a shorter, lower-priority task still slots into the remaining minutes."""
+    today = date(2026, 7, 7)
+    pet = Pet("Biscuit", "dog", available_minutes=40)
+    # High priority first (25 min), then another high that WON'T fit (30 min),
+    # then a low 15-min task that fits in the leftover 15 min.
+    pet.add_task("Walk", 25, 3, time="08:00")
+    pet.add_task("Training", 30, 3, time="09:00")   # 25 + 30 = 55 > 40 -> skipped
+    pet.add_task("Brush", 15, 1, time="10:00")      # 25 + 15 = 40 -> fits exactly
+
+    plan = Scheduler().build_plan(pet.tasks, pet.available_minutes, today)
+
+    names = [t.name for t in plan]
+    assert "Walk" in names           # highest priority, taken first
+    assert "Training" not in names   # didn't fit -> skipped
+    assert "Brush" in names          # shorter task fills leftover time
+    # Delivered chronologically.
+    assert names == ["Walk", "Brush"]
+
+
+def test_build_plan_breaks_priority_ties_by_shorter_duration():
+    """Among equal-priority tasks, the shorter one is chosen when only one fits."""
+    today = date(2026, 7, 7)
+    pet = Pet("Biscuit", "dog", available_minutes=15)
+    pet.add_task("Long walk", 30, 3, time="08:00")   # same priority, too long
+    pet.add_task("Quick meds", 10, 3, time="09:00")  # same priority, fits
+
+    plan = Scheduler().build_plan(pet.tasks, pet.available_minutes, today)
+
+    assert [t.name for t in plan] == ["Quick meds"]
+
+
+def test_build_plan_includes_task_that_exactly_fills_budget():
+    """Boundary: a task whose duration equals the remaining minutes is included."""
+    today = date(2026, 7, 7)
+    pet = Pet("Biscuit", "dog", available_minutes=30)
+    pet.add_task("Walk", 30, 3, time="08:00")  # exactly 30 of 30 min
+
+    plan = Scheduler().build_plan(pet.tasks, pet.available_minutes, today)
+
+    assert [t.name for t in plan] == ["Walk"]
+
+
+def test_build_plan_empty_for_pet_with_no_tasks():
+    """Edge case: a pet with no tasks plans to an empty list without error."""
+    today = date(2026, 7, 7)
+    pet = Pet("Biscuit", "dog", available_minutes=60)
+
+    assert Scheduler().build_plan(pet.tasks, pet.available_minutes, today) == []
+
+
+def test_build_plan_empty_when_zero_minutes_available():
+    """A zero-minute budget schedules nothing, even with due tasks."""
+    today = date(2026, 7, 7)
+    pet = Pet("Biscuit", "dog", available_minutes=0)
+    pet.add_task("Walk", 10, 3, time="08:00")
+
+    assert Scheduler().build_plan(pet.tasks, pet.available_minutes, today) == []
+
+
+# --- Feature: reasoning / explanation ------------------------------------
+
+def test_explain_reports_planned_and_skipped_counts():
+    """explain() summarizes how many tasks fit, the minutes used, and what was skipped."""
+    pet = Pet("Biscuit", "dog", available_minutes=30)
+    walk = pet.add_task("Walk", 30, 3, time="08:00")
+    brush = pet.add_task("Brush", 15, 1, time="09:00")
+
+    scheduler = Scheduler()
+    text = scheduler.explain(planned=[walk], skipped=[brush], available_minutes=30)
+
+    assert "Planned 1 of 2 task(s)" in text
+    assert "30 of 30 min used" in text
+    assert "Walk" in text and "Brush" in text
+    assert "didn't fit remaining time" in text
