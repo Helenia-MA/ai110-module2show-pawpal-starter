@@ -176,25 +176,25 @@ tests/test_pawpal.py ........................                                   
 | Recurring tasks | | e.g., daily vs. weekly |
 
 1. task sorting
-    Scheduler.sort_by_time() - orders tasks by their time
-    Scheduler.sort_by_duration() - orders tasks by their duration(duration_minutes);(ascending order; shortest - longest)
-    Scheduler.build_plan() - selects tasks by priority then shortest duration and returns the chosen plan sorted by the tasks' time
+    - Scheduler.sort_by_time() - orders tasks by their time
+    - Scheduler.sort_by_duration() - orders tasks by their duration(duration_minutes);(ascending order; shortest - longest)
+    - Scheduler.build_plan() - selects tasks by priority then shortest duration and returns the chosen plan sorted by the tasks' time
 2. filtering
-    Owner.tasks_for_pet() - filter by pet
-    Scheduler.filter_by-status - filter by completion status
-    Task.needs_doing() - helps with filtering what's due today
+    - Owner.tasks_for_pet() - filter by pet
+    - Scheduler.filter_by-status - filter by completion status
+    - Task.needs_doing() - helps with filtering what's due today
 3. conflict detection
-    Scheduler.detect_time_conflict() - detects clash in exact time for tasks for a given owner across all pets
-    Scheduler.detect_conflicts() - checks for exceeded time availability and duplicate task names for a given pet
+    - Scheduler.detect_time_conflict() - detects clash in exact time for tasks for a given owner across all pets
+    - Scheduler.detect_conflicts() - checks for exceeded time availability and duplicate task names for a given pet
 4. recurring task logic
-    Scheduler.complete_task() - marks a task completed, spawns new occurrence for recurring ones based on their frequency
-    Task.mark_complete() - marks the task occurrence done
-    Task.due_date() - the day when a spawned occurrence is due
-    FREQUENCY_DAYS - for mapping the frequencies to numerical values eg daily, weekly etc
+    - Scheduler.complete_task() - marks a task completed, spawns new occurrence for recurring ones based on their frequency
+    - Task.mark_complete() - marks the task occurrence done
+    - Task.due_date() - the day when a spawned occurrence is due
+    - FREQUENCY_DAYS - for mapping the frequencies to numerical values eg daily, weekly etc
 5. planning and explanation
-    Scheduler.build_plan() - makes the daily plan per pet within the time budget
-    Scheduler.all_owner_plans() - maps each plan to its respective pet
-    Scheduler.explain() - provides reasoning for the order of the tasks and a summary of what was planned or skipped and why
+    - Scheduler.build_plan() - makes the daily plan per pet within the time budget
+    - Scheduler.all_owner_plans() - maps each plan to its respective pet
+    - Scheduler.explain() - provides reasoning for the order of the tasks and a summary of what was planned or skipped and why
 
 
 ## 📸 Demo Walkthrough
